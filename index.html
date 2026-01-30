@@ -59,6 +59,8 @@ Tip 3.00
 Total 20.88"></textarea>
           <div class="inline">
             <button id="btnParse" class="btn" type="button">Parse lines</button>
+            <button id="btnScan" class="btn ghost" type="button">Scan photo (beta)</button>
+            <input id="scanInput" type="file" accept="image/*" capture="environment" hidden />
             <button id="btnExample" class="btn ghost" type="button">Load example</button>
             <button id="btnAddItem" class="btn ghost" type="button">Add blank item</button>
             <div class="muted" id="parseMsg" aria-live="polite"></div>
@@ -120,6 +122,8 @@ Total 20.88"></textarea>
     </footer>
   </main>
 
+  <!-- OCR (client-side) for receipt photo parsing -->
+  <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

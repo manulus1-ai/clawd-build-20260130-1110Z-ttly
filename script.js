@@ -25,6 +25,8 @@ const els = {
   btnNativeShare: $('#btnNativeShare'),
   btnNew: $('#btnNew'),
   btnExample: $('#btnExample'),
+  btnScan: $('#btnScan'),
+  scanInput: $('#scanInput'),
   parseMsg: $('#parseMsg'),
 };
 
@@ -504,12 +506,83 @@ els.personName.addEventListener('keydown', (e) => {
 
 els.btnAddItem.addEventListener('click', addBlankItem);
 
-els.btnParse.addEventListener('click', () => {
-  const { items, tax, tip } = parseReceiptLines(els.receipt.value);
-  const before = state.items.length;
-  if (items.length > 0){
-    state.items.push(...items);
+// --- OCR receipt scanning (client-side, Tesseract.js) ---
+async function downscaleImageFile(file, maxDim=1600){
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  try{
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    const scale = Math.min(1, maxDim / Math.max(w, h));
+    const cw = Math.max(1, Math.round(w * scale));
+    const ch = Math.max(1, Math.round(h * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = cw;
+    canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, cw, ch);
+    return canvas;
+  } finally {
+    URL.revokeObjectURL(url);
   }
+}
+
+async function scanReceiptFromFile(file){
+  if (!file) return;
+  if (!window.Tesseract){
+    alert('OCR library failed to load. Please refresh and try again.');
+    return;
+  }
+
+  els.parseMsg.textContent = 'Scanning photo… (this can take ~10–30s)';
+
+  try{
+    const canvas = await downscaleImageFile(file, 1600);
+    const result = await window.Tesseract.recognize(canvas, 'eng', {
+      logger: (m) => {
+        if (m.status === 'recognizing text' && typeof m.progress === 'number'){
+          const pct = Math.round(m.progress * 100);
+          els.parseMsg.textContent = `Scanning photo… ${pct}%`;
+        }
+      }
+    });
+
+    const rawText = (result?.data?.text || '').trim();
+    if (!rawText){
+      els.parseMsg.textContent = 'OCR found no text. Try a clearer photo.';
+      setTimeout(()=>{ els.parseMsg.textContent=''; }, 3500);
+      return;
+    }
+
+    // Put OCR text in the textarea so the user can fix mistakes.
+    els.receipt.value = rawText;
+
+    // Try auto-parse immediately; user can also edit and re-parse.
+    applyParsedReceipt(parseReceiptLines(rawText), { sourceLabel: 'Scanned' });
+  } catch (e){
+    console.error(e);
+    els.parseMsg.textContent = 'Scan failed. Try again with better lighting / closer crop.';
+    setTimeout(()=>{ els.parseMsg.textContent=''; }, 3500);
+  }
+}
+
+els.btnScan?.addEventListener('click', () => {
+  els.scanInput?.click();
+});
+
+els.scanInput?.addEventListener('change', async () => {
+  const file = els.scanInput.files?.[0];
+  await scanReceiptFromFile(file);
+  els.scanInput.value = '';
+});
+
+function applyParsedReceipt({ items, tax, tip }, { replace=false, sourceLabel='' } = {}){
+  const before = state.items.length;
+  if (replace) state.items = [];
+
+  if (items.length > 0) state.items.push(...items);
+
   if (tax != null){
     state.tax = tax;
     els.tax.value = tax.toFixed(2);
@@ -518,12 +591,19 @@ els.btnParse.addEventListener('click', () => {
     state.tip = tip;
     els.tip.value = tip.toFixed(2);
   }
+
   renderItems();
   computeAndRenderTotals();
   scheduleAutosave();
+
   const added = state.items.length - before;
-  els.parseMsg.textContent = added ? `Added ${added} item${added===1?'':'s'}.` : 'No items recognized.';
-  setTimeout(()=>{ els.parseMsg.textContent=''; }, 2500);
+  const label = sourceLabel ? `${sourceLabel}: ` : '';
+  els.parseMsg.textContent = added ? `${label}Added ${added} item${added===1?'':'s'}.` : `${label}No items recognized.`;
+  setTimeout(()=>{ els.parseMsg.textContent=''; }, 3500);
+}
+
+els.btnParse.addEventListener('click', () => {
+  applyParsedReceipt(parseReceiptLines(els.receipt.value), { sourceLabel: 'Parsed' });
 });
 
 els.btnExample?.addEventListener('click', () => {
@@ -544,17 +624,9 @@ els.btnExample?.addEventListener('click', () => {
     'Tip 5.00',
   ].join('\n');
 
-  const { items, tax, tip } = parseReceiptLines(els.receipt.value);
-  state.items = items;
-  state.tax = tax ?? 0;
-  state.tip = tip ?? 0;
-  els.tax.value = state.tax ? state.tax.toFixed(2) : '';
-  els.tip.value = state.tip ? state.tip.toFixed(2) : '';
+  applyParsedReceipt(parseReceiptLines(els.receipt.value), { replace:true, sourceLabel:'Example' });
 
   renderPeople();
-  renderItems();
-  computeAndRenderTotals();
-  scheduleAutosave();
 });
 
 function onTaxTipInput(){
