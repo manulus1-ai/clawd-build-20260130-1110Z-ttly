@@ -22,7 +22,9 @@ const els = {
   btnCopyText: $('#btnCopyText'),
   btnDownload: $('#btnDownload'),
   btnShare: $('#btnShare'),
+  btnNativeShare: $('#btnNativeShare'),
   btnNew: $('#btnNew'),
+  btnExample: $('#btnExample'),
   parseMsg: $('#parseMsg'),
 };
 
@@ -524,6 +526,37 @@ els.btnParse.addEventListener('click', () => {
   setTimeout(()=>{ els.parseMsg.textContent=''; }, 2500);
 });
 
+els.btnExample?.addEventListener('click', () => {
+  // Quick demo data so first-time users can see the flow.
+  state.people = [
+    { id: uid('p'), name: 'Alex' },
+    { id: uid('p'), name: 'Bea' },
+    { id: uid('p'), name: 'Chris' },
+  ];
+  activeAssignees = new Set();
+  state.items = [];
+  els.receipt.value = [
+    'Tacos 13.50',
+    'Chips & salsa 6.00',
+    'Soda 3.25',
+    'Soda 3.25',
+    'Tax 2.10',
+    'Tip 5.00',
+  ].join('\n');
+
+  const { items, tax, tip } = parseReceiptLines(els.receipt.value);
+  state.items = items;
+  state.tax = tax ?? 0;
+  state.tip = tip ?? 0;
+  els.tax.value = state.tax ? state.tax.toFixed(2) : '';
+  els.tip.value = state.tip ? state.tip.toFixed(2) : '';
+
+  renderPeople();
+  renderItems();
+  computeAndRenderTotals();
+  scheduleAutosave();
+});
+
 function onTaxTipInput(){
   state.tax = parseMoney(els.tax.value);
   state.tip = parseMoney(els.tip.value);
@@ -553,6 +586,21 @@ els.btnShare.addEventListener('click', async () => {
     setTimeout(()=>{ els.btnShare.textContent='Copy share link'; }, 1200);
   }catch{
     alert('Could not copy the link.');
+  }
+});
+
+els.btnNativeShare?.addEventListener('click', async () => {
+  try{
+    setHashFromState();
+    const url = location.href;
+    if (navigator.share){
+      await navigator.share({ title: 'TabTally', text: 'Receipt split', url });
+      return;
+    }
+    await copyTextToClipboard(url);
+    alert('Share not supported here — copied link instead.');
+  }catch{
+    // ignore (user cancelled share, etc.)
   }
 });
 
