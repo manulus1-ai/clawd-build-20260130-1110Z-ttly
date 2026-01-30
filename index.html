@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TabTally — fast receipt splitting with shareable links</title>
+  <meta name="description" content="Paste a receipt, assign items to people, split tax/tip fairly, and share a single link." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">TT</div>
+        <div>
+          <h1>TabTally</h1>
+          <p class="sub">Split a receipt in minutes. Share one link. No logins.</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btnNew" class="btn ghost" type="button" title="Clear everything">New</button>
+        <button id="btnShare" class="btn" type="button" title="Copy a shareable link">Copy share link</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <h2>1) People</h2>
+      <div class="row">
+        <div class="field grow">
+          <label for="personName">Add a person</label>
+          <div class="inline">
+            <input id="personName" autocomplete="off" placeholder="e.g., Sam" />
+            <button id="btnAddPerson" class="btn" type="button">Add</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Quick tips</label>
+          <div class="hint">
+            Click names to assign items. Shift+click to multi-select.
+          </div>
+        </div>
+      </div>
+      <div id="people" class="chips" aria-live="polite"></div>
+    </section>
+
+    <section class="card">
+      <h2>2) Receipt</h2>
+      <div class="row">
+        <div class="field grow">
+          <label for="receipt">Paste receipt lines</label>
+          <textarea id="receipt" rows="7" placeholder="Examples:
+Burger 12.50
+Fries 4.00
+Tax 1.38
+Tip 3.00
+Total 20.88"></textarea>
+          <div class="inline">
+            <button id="btnParse" class="btn" type="button">Parse lines</button>
+            <button id="btnAddItem" class="btn ghost" type="button">Add blank item</button>
+            <div class="muted" id="parseMsg" aria-live="polite"></div>
+          </div>
+        </div>
+        <div class="field totals">
+          <label>Tax & tip</label>
+          <div class="grid2">
+            <div>
+              <span class="mini">Tax</span>
+              <input id="tax" inputmode="decimal" placeholder="0.00" />
+            </div>
+            <div>
+              <span class="mini">Tip</span>
+              <input id="tip" inputmode="decimal" placeholder="0.00" />
+            </div>
+          </div>
+          <div class="hint">Tax/tip are split proportionally to each person’s subtotal.</div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="itemsTable">
+          <thead>
+            <tr>
+              <th style="width: 38%">Item</th>
+              <th style="width: 14%">Price</th>
+              <th>Assigned to</th>
+              <th style="width: 80px"></th>
+            </tr>
+          </thead>
+          <tbody id="items"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3) Totals</h2>
+      <div class="row">
+        <div class="field grow">
+          <div id="totals" class="totalsGrid" aria-live="polite"></div>
+        </div>
+        <div class="field summary">
+          <div class="big" id="grandTotal">$0.00</div>
+          <div class="muted">Grand total (items + tax + tip)</div>
+          <div class="inline">
+            <button id="btnCopyText" class="btn ghost" type="button">Copy summary</button>
+            <button id="btnDownload" class="btn ghost" type="button">Download .csv</button>
+          </div>
+          <p class="tiny muted">All data stays in your browser. Sharing is just encoding the state into the URL.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer muted">
+      <span>Built for quick group dinners. Works offline after first load.</span>
+      <span class="sep">·</span>
+      <a href="https://github.com" target="_blank" rel="noreferrer">GitHub Pages-ready</a>
+    </footer>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
