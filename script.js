@@ -136,6 +136,7 @@ function renderItems(){
   els.items.innerHTML = '';
   state.items.forEach(item => {
     const tr = document.createElement('tr');
+    if (!item.assignedTo || item.assignedTo.length === 0) tr.classList.add('unassignedRow');
 
     const assigned = new Set(item.assignedTo);
     const pills = state.people.map(p => {
@@ -255,39 +256,82 @@ function addBlankItem(){
 
 function computeTotals(){
   const people = state.people;
+  // Work in integer cents to avoid rounding drift when splitting items.
   const per = new Map(people.map(p => [p.id, { subtotal:0, tax:0, tip:0, total:0 }]));
 
-  // Subtotals by splitting each item among assignees equally.
-  let unassignedSubtotal = 0;
+  let unassignedSubtotal = 0; // cents
+
+  // Item subtotals: split each item across its assignees in cents.
   for (const it of state.items){
-    const price = Number(it.price)||0;
-    const assignees = (it.assignedTo || []).filter(pid => per.has(pid));
+    const priceCents = Math.round((Number(it.price)||0) * 100);
+    const assignees = (it.assignedTo || []).filter(pid => per.has(pid)).slice().sort();
     if (assignees.length === 0){
-      unassignedSubtotal += price;
+      unassignedSubtotal += priceCents;
       continue;
     }
-    const share = price / assignees.length;
-    for (const pid of assignees){
-      per.get(pid).subtotal += share;
+    const base = Math.floor(priceCents / assignees.length);
+    const rem = priceCents - base * assignees.length;
+    assignees.forEach((pid, idx) => {
+      per.get(pid).subtotal += base + (idx < rem ? 1 : 0);
+    });
+  }
+
+  const taxCents = Math.round((Number(state.tax)||0) * 100);
+  const tipCents = Math.round((Number(state.tip)||0) * 100);
+
+  const subtotalSum = Array.from(per.values()).reduce((a,x)=>a + x.subtotal, 0);
+
+  function allocateProportional(totalCents, weights){
+    const n = weights.length;
+    if (n === 0) return [];
+    if (totalCents === 0) return weights.map(() => 0);
+    const wSum = weights.reduce((a,b)=>a+b, 0);
+    if (wSum <= 0){
+      const base = Math.floor(totalCents / Math.max(n,1));
+      const rem = totalCents - base*n;
+      return weights.map((_,i)=> base + (i < rem ? 1 : 0));
     }
+    const raw = weights.map(w => (totalCents * w) / wSum);
+    const flo = raw.map(x => Math.floor(x));
+    let used = flo.reduce((a,b)=>a+b, 0);
+    let rem = totalCents - used;
+    const fracIdx = raw
+      .map((x,i)=>({i, frac: x - Math.floor(x)}))
+      .sort((a,b)=> b.frac - a.frac);
+    if (fracIdx.length){
+      for (let k=0; k<rem; k++) flo[fracIdx[k % fracIdx.length].i] += 1;
+    }
+    return flo;
   }
 
-  const tax = Number(state.tax)||0;
-  const tip = Number(state.tip)||0;
+  const ids = people.map(p => p.id);
+  const weights = ids.map(id => per.get(id)?.subtotal || 0);
+  const taxAlloc = allocateProportional(taxCents, weights);
+  const tipAlloc = allocateProportional(tipCents, weights);
 
-  const totalAssignedSubtotal = Array.from(per.values()).reduce((a,x)=>a+x.subtotal,0);
-  // Split tax/tip proportionally to assigned subtotal. If no assigned subtotal, split evenly.
-  for (const [pid, t] of per){
-    const weight = totalAssignedSubtotal > 0 ? (t.subtotal/totalAssignedSubtotal) : (1/Math.max(people.length,1));
-    t.tax = tax * weight;
-    t.tip = tip * weight;
+  ids.forEach((id, idx) => {
+    const t = per.get(id);
+    t.tax = taxAlloc[idx] || 0;
+    t.tip = tipAlloc[idx] || 0;
     t.total = t.subtotal + t.tax + t.tip;
+  });
+
+  const grand = subtotalSum + unassignedSubtotal + taxCents + tipCents; // cents
+
+  // Convert to dollars for rendering.
+  const perDollars = new Map();
+  for (const [pid, t] of per){
+    perDollars.set(pid, {
+      subtotal: t.subtotal/100,
+      tax: t.tax/100,
+      tip: t.tip/100,
+      total: t.total/100,
+    });
   }
 
-  const grand = totalAssignedSubtotal + unassignedSubtotal + tax + tip;
-
-  return { per, unassignedSubtotal, grand };
+  return { per: perDollars, unassignedSubtotal: unassignedSubtotal/100, grand: grand/100 };
 }
+
 
 function computeAndRenderTotals(){
   const { per, unassignedSubtotal, grand } = computeTotals();

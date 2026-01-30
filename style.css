@@ -78,6 +78,9 @@ th,td{padding:10px 10px;border-bottom:1px solid rgba(42,53,100,.55);vertical-ali
 th{font-size:12px;color:var(--muted);text-align:left;background: rgba(18,26,51,.55)}
 tr:last-child td{border-bottom:none}
 
+.unassignedRow td{background: rgba(255,107,107,.06)}
+.unassignedRow td:first-child{box-shadow: inset 3px 0 0 rgba(255,107,107,.55)}
+
 .assign{display:flex;gap:6px;flex-wrap:wrap}
 .pill{
   padding:6px 8px;border-radius:999px;font-size:12px;
